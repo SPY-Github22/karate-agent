@@ -1,50 +1,57 @@
 # Karate Form-Correction Concierge Agent
 
-This is a capstone project for Google's 5-Day AI Agents Intensive course. It analyzes a pre-recorded video of a single karate kata sequence and provides specific, checkpoint-level coaching feedback, modeled after how a real coach would review form.
+Maps to Unit 5: Spec-Driven Production Grade Development in the Age of Vibe Coding.
+
+## What it does
+Analyzes a pre-recorded video of a single karate kata sequence and returns
+specific, checkpoint-level coaching feedback, modeled on how a real coach
+would review form after a rep.
 
 ## Architecture
+- **Vision Agent / MCP tool** (`mcp_server/pose_tool.py`): extracts pose
+  landmarks per frame via MediaPipe, computes 8 joint-angle checkpoints,
+  exposed as the `analyze_pose` MCP tool.
+- **Coach Agent** (`agents/coach_agent.py`): loads the `karate-form-check`
+  skill on demand, compares checkpoint values to reference ranges, and
+  generates specific coaching notes.
+- **Skill** (`skills/karate-form-check/SKILL.md`): portable domain knowledge
+  file — the checkpoint table, reference ranges, and coaching-tone rules —
+  loaded only when a karate-video task is detected (progressive disclosure).
+- **Memory Agent** (`agents/memory_agent.py`): logs session results over time and
+  reports trend data (e.g. "shoulder alignment improved over last 3 sessions").
 
-The system is composed of several specialized components working together:
+## Setup
 
-1. **Vision Agent (MCP Tool)** (`mcp_server/pose_tool.py`)
-   - Uses MediaPipe to extract pose landmarks from each frame of the video.
-   - Computes 8 specific joint-angle checkpoints (e.g., spine tilt, knee angle).
-   - Exposed as an MCP tool (`analyze_pose`).
+1. Install dependencies:
+   ```bash
+   pip install mediapipe opencv-python mcp
+   ```
+2. Run the Coach Agent test scaffold:
+   ```bash
+   python agents/coach_agent.py
+   ```
+   (This will run a manual test using sample data.)
+3. Run the full pipeline with a test video:
+   ```bash
+   python run_pipeline.py <video_path.mp4>
+   ```
 
-2. **Coach Agent** (`agents/coach_agent.py`)
-   - Loads the `karate-form-check` skill (domain knowledge) on demand.
-   - Compares the measured checkpoint values against reference ranges.
-   - Generates specific, plain-language coaching notes based on rule-based deviations.
+## Inputs / Outputs
+- **Input:** single video file (mp4/mov/avi), one kata sequence, one person.
+- **Output:** JSON summary — per-checkpoint pass rate + timestamped coaching
+  notes.
 
-3. **Memory Agent** (`agents/memory_agent.py`)
-   - Logs session results to a JSON file (`data/sessions.json`).
-   - Tracks historical pass rates across sessions and reports improvement trends.
+## Explicit limitations (by design, not oversight)
+- Single kata sequence only (locked in Phase 1) — not general karate form
+  analysis.
+- Pre-recorded video only — no live webcam / real-time feedback.
+- Reference ranges are calibrated to one practitioner's own baseline clip —
+  not a generalized correctness model across body types or belt levels.
+- Rule-based deviation detection, not LLM judgment on raw numeric data —
+  chosen for gradeability and reliability over flexibility.
 
-## Setup & Execution
-
-### Prerequisites
-
-Ensure you have Python installed, then install the necessary dependencies:
-
-```bash
-pip install opencv-python mediapipe mcp
-```
-
-### Calibration (One-time Setup)
-
-Before using the pipeline on practice footage, you need to calibrate the reference ranges using a baseline "perfect form" clip.
-
-```bash
-python calibrate.py <path_to_baseline_video.mp4>
-```
-Take the output values from this script and update `REFERENCE_RANGES` in `agents/coach_agent.py` and `skills/karate-form-check/SKILL.md`.
-
-### Running the Pipeline
-
-Analyze a video by running the full pipeline:
-
-```bash
-python run_pipeline.py <path_to_video.mp4>
-```
-
-This will output a clean summary of your performance, including pass rates, historical trends, and specific coaching notes for any deviations detected.
+## Security (Unit 4)
+- File-type validation before processing (rejects non-video files).
+- Frame-count cap (900 frames, ~30s) to prevent unbounded resource use on
+  oversized input.
+- No raw video retained beyond the analysis session.
